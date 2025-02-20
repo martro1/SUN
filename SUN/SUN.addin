@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Command">
+    <Text>Command SUN</Text>
+    <Description>Some description for SUN</Description>
+    <Assembly>SUN.dll</Assembly>
+    <FullClassName>SUN.Command</FullClassName>
+    <ClientId>3b116e86-276e-420c-84cd-e1608c961e39</ClientId>
+    <VendorId>com.typepad.thebuildingcoder</VendorId>
+    <VendorDescription>The Building Coder, http://thebuildingcoder.typepad.com</VendorDescription>
+  </AddIn>
+  <AddIn Type="Application">
+    <Name>Application SUN</Name>
+    <Assembly>SUN.dll</Assembly>
+    <FullClassName>SUN.App</FullClassName>
+    <ClientId>14b3065e-5aa5-45ac-ae11-b5200747c6a8</ClientId>
+    <VendorId>com.typepad.thebuildingcoder</VendorId>
+    <VendorDescription>The Building Coder, http://thebuildingcoder.typepad.com</VendorDescription>
+  </AddIn>
+</RevitAddIns>

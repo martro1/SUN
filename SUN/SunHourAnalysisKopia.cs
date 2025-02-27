@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.ExceptionServices;
+using System.Security.Cryptography;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using Autodesk.Revit.ApplicationServices;
@@ -10,6 +11,7 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
+using FamilyInstance = Autodesk.Revit.DB.FamilyInstance;
 using Wall = Autodesk.Revit.DB.Wall;
 
 #endregion
@@ -33,6 +35,7 @@ namespace SUN
             SunAndShadowSettings sunSettings = doc.ActiveView.SunAndShadowSettings;
             int minutes = 0;
             XYZ oddalone = null;
+            List<XYZ> oddalonelista = new List<XYZ>();
             double numberOfFrames = sunSettings.NumberOfFrames;
             List<double> listOfAltitudes = new List<double>();
             List<double> listOfAzimuth = new List<double>();
@@ -47,74 +50,196 @@ namespace SUN
                 XYZ sunVector = sunExtensions.GetSunVector(altitude, azimuth);
                 sunVectors.Add(sunVector);
             }
-            XYZ analysisPoint = PointExtensions.SelectPoint(uidoc);
-            if (analysisPoint == null)
-            {
-                TaskDialog.Show("Cancelled", "No point selected.");
-                return Result.Cancelled;
-            }
+            string targetFamilyName = "MAMSunTarget";
+            Reference pickedRef = uidoc.Selection.PickObject(ObjectType.Element, new FamilyInstanceSelectionFilter(targetFamilyName),
+                "Wybierz instancjê rodziny '" + targetFamilyName + "'");
+            Element selectedElement = doc.GetElement(pickedRef);
+            Location loc = selectedElement.Location;
+            LocationPoint locP = loc as LocationPoint;
+            XYZ locationPPoint = locP.Point;
+
+
+
             using (Transaction trans = new Transaction(doc, "dada"))
             {
                 trans.Start();
+
+                FamilyInstance familyInstance = selectedElement as FamilyInstance;
+                XYZ normal = FamilyInstanceNormal.GetFamilyNormal(familyInstance).Normalize();
+                double odsunieciePunktuwFeetach = selectedElement.LookupParameter("od").AsDouble();
+                XYZ analysisPoint = locationPPoint.MoveAlongVector(normal, -odsunieciePunktuwFeetach);
+
                 foreach (XYZ sunVector in sunVectors)
                 {
                     XYZ zero = XYZ.Zero;
-                    //sunVector.Visualize(doc);
-                    oddalone = zero.MoveAlongVector(sunVector, 1000);
+                    oddalone = zero.MoveAlongVector(sunVector, 500);
+                    oddalonelista.Add(oddalone);
                     //oddalone.Visualize(doc);
                     //XYZ planeNormal = analysisPoint.CrossProduct(oddalone);
                     //SketchPlane sketchPlane = SketchPlane.Create(doc, Plane.CreateByNormalAndOrigin(planeNormal, analysisPoint));
                     //Curve line = Line.CreateBound(analysisPoint, oddalone) as Curve;
                     //doc.Create.NewModelCurve(line, sketchPlane);
-                    if (sunExtensions.IsPointExposedToSun(doc, analysisPoint, -oddalone))
+                    if (sunExtensions.IsPointExposedToSun(doc, analysisPoint, oddalone))
                     {
                         minutes++;
                     }
-                }
-                WallIntersections WI = new WallIntersections();
-                List<WallIntersections> wynik = WI.GetWallIntersections(doc, activeView, sunVectors, analysisPoint);
 
-                if (wynik.Count >= 2)
-                {
-                    for (int i = 0; i < wynik.Count - 1; i++) // Loop through pairs of adjacent intersections
-                    {
-                        XYZ firstWallLastPoint = wynik[i].FirstPoint;
-                        XYZ secondWallFirstPoint = wynik[i + 1].LastPoint;
-
-                        // Create a solid cap between adjacent walls
-                        SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallLastPoint, secondWallFirstPoint);
-                    }
                 }
+                GetIntersections WI = new GetIntersections();
+                List<GetIntersections> wynik = WI.GetIntersection(doc, activeView, oddalonelista, analysisPoint);
+
+                List<XYZ> allPoints = wynik.SelectMany(w => new List<XYZ> { w.FirstPoint, w.LastPoint }).ToList();
+                TaskDialog.Show("ilosc elementow", $"Ilosc elementow przecinajacych {wynik.Count}");
+                //foreach (XYZ point in allPoints)
+                //{
+                //    point.Visualize(doc);
+                //}
+
                 double dist = analysisPoint.DistanceTo(wynik.First().LastPoint);
-                XYZ first = analysisPoint.MoveAlongVector(sunVectors.First(), dist);
-                if (sunExtensions.IsPointExposedToSun(doc, analysisPoint, first) == false)
-                {
-                    SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, first, wynik.First().LastPoint);
-                }
-
-                //DOTAD ZROBIONE
+                XYZ first = analysisPoint.MoveAlongVector(oddalonelista.First(), dist);
                 double dist2 = analysisPoint.DistanceTo(wynik.Last().FirstPoint);
                 XYZ last = analysisPoint.MoveAlongVector(sunVectors.Last(), dist2);
 
-                wynik.Last().FirstPoint.Visualize(doc);
-                last.Visualize(doc);
-                if (sunExtensions.IsPointExposedToSun(doc, analysisPoint, last) == false)
+                //XYZ planeNormal = analysisPoint.CrossProduct(first);
+                //SketchPlane sketchPlane = SketchPlane.Create(doc, Plane.CreateByNormalAndOrigin(planeNormal, analysisPoint));
+                //Curve line = Line.CreateBound(analysisPoint, first) as Curve;
+                //doc.Create.NewModelCurve(line, sketchPlane);
+
+                //4 przypadek 7 17 sa zasloniete
+                if (!(sunExtensions.IsPointExposedToSun(doc, analysisPoint, first)) &&
+                         !(sunExtensions.IsPointExposedToSun(doc, analysisPoint, last)))
+
                 {
-                    SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, last, wynik.Last().FirstPoint);
+                    TaskDialog.Show("info", "4 przypadek 7 17 sa zasloniete");
+                    if (wynik.Count >= 2)
+                    {
+                        for (int i = 0; i < wynik.Count - 1; i++) // Loop through pairs of adjacent intersections
+                        {
+                            XYZ firstWallLastPoint = wynik[i].LastPoint;
+                            XYZ secondWallFirstPoint = wynik[i + 1].FirstPoint;
+                            if (i == 0)
+                            {
+                                firstWallLastPoint = wynik[i].FirstPoint;
+                                secondWallFirstPoint = wynik[i + 1].FirstPoint;
+                            }
+
+                            if (i == wynik.Count - 1)
+                            {
+                                firstWallLastPoint = wynik[i].FirstPoint;
+                                secondWallFirstPoint = wynik[i + 1].FirstPoint;
+                            }
+
+                            SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallLastPoint, secondWallFirstPoint);
+                        }
+                    }
+                    else
+                    {
+                        TaskDialog.Show("wynik", "Wynik ilosci ceicia jest mniejszy od 2.");
+                    }
                 }
 
 
+                //1 przypadek gdy 7 i 17 sa wolne
+                else if ((sunExtensions.IsPointExposedToSun(doc, analysisPoint, first)) &&
+                    (sunExtensions.IsPointExposedToSun(doc, analysisPoint, last)))
+                {
+                    TaskDialog.Show("info", "7 i 17 sa wolne");
+                    if (wynik.Count >= 2)
+                    {
+                        XYZ godzina7 = oddalonelista.First();
+                        XYZ firstWallFirstPoint = wynik[0].FirstPoint;
+                        SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallFirstPoint, godzina7);
+
+                        for (int i = 0; i < wynik.Count - 1; i++) // Loop through pairs of adjacent intersections
+                        {
+                            XYZ firstWallLastPoint = wynik[i].LastPoint;
+                            XYZ secondWallFirstPoint = wynik[i + 1].FirstPoint;
+
+                            SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallLastPoint, secondWallFirstPoint);
+                        }
+
+                        XYZ godzina17 = oddalonelista.Last();
+                        XYZ lastWallLastPoint = wynik[wynik.Count - 1].LastPoint;
+                        SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, lastWallLastPoint, godzina17);
+                    }
+                    else
+                    {
+                        TaskDialog.Show("else", "Wynik ilosci ceicia jest mniejszy od 2.");
+                    }
+                }
+
+                //2 przypadek 7 jest zaslonieta 17 jest wolna
+                else if (!(sunExtensions.IsPointExposedToSun(doc, analysisPoint, first)) &&
+                    (sunExtensions.IsPointExposedToSun(doc, analysisPoint, last)))
+                {
+                    TaskDialog.Show("info", "2 przypadek 7 jest zaslonieta 17 jest wolna");
+                    if (wynik.Count >= 2)
+                    {
+                        for (int i = 0; i < wynik.Count - 1; i++) // Loop through pairs of adjacent intersections
+                        {
+                            XYZ firstWallLastPoint = wynik[i].LastPoint;
+                            XYZ secondWallFirstPoint = wynik[i + 1].FirstPoint;
+                            if (i == 0)
+                            {
+                                firstWallLastPoint = wynik[i].FirstPoint;
+                                secondWallFirstPoint = wynik[i + 1].FirstPoint;
+                            }
+                            SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallLastPoint, secondWallFirstPoint);
+                        }
+                        XYZ godzina17 = oddalonelista.Last();
+                        XYZ lastWallLastPoint = wynik[wynik.Count - 1].LastPoint;
+                        SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, lastWallLastPoint, godzina17);
+                    }
+                    else
+                    {
+                        TaskDialog.Show("wynik", "Wynik ilosci ceicia jest mniejszy od 2.");
+                    }
+                }
+
+                //3 przypadek 7 jest wolna 17 jest zaslonieta
+                else if ((sunExtensions.IsPointExposedToSun(doc, analysisPoint, first)) &&
+                    !(sunExtensions.IsPointExposedToSun(doc, analysisPoint, last)))
+                {
+                    TaskDialog.Show("info", "3 przypadek 7 jest wolna 17 jest zaslonieta");
+                    if (wynik.Count >= 2)
+                    {
+                        for (int i = 0; i < wynik.Count - 1; i++) // Loop through pairs of adjacent intersections
+                        {
+                            XYZ firstWallLastPoint = wynik[i].LastPoint;
+                            XYZ secondWallFirstPoint = wynik[i + 1].FirstPoint;
+                            if (i == 0)
+                            {
+                                firstWallLastPoint = wynik[i].LastPoint;
+                                secondWallFirstPoint = wynik[i + 1].FirstPoint;
+                            }
+                            SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallLastPoint, secondWallFirstPoint);
+                        }
+                        XYZ godzina7 = oddalonelista.First();
+                        XYZ firstWallFirstPoint = wynik[0].FirstPoint;
+                        SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallFirstPoint, godzina7);
+                    }
+                    else
+                    {
+                        TaskDialog.Show("wynik", "Wynik ilosci ceicia jest mniejszy od 2.");
+                    }
+                }
+                else
+                {
+                    TaskDialog.Show("info", "zaden z przypadkow");
+                }
+
+                //DOTAD ZROBIONE
 
 
+                int hours = minutes / 60;
+                int remainingMinutes = minutes % 60;
+                TaskDialog.Show("Sun Analysis Complete", $"Total Sun Hours at Point: {hours} hours and {remainingMinutes} minutes");
+
+                Parameter parameter = selectedElement.LookupParameter("Nas³onecznienie");
+                parameter.Set(hours + " h " + remainingMinutes + " min");
 
                 trans.Commit();
             }
-
-            int hours = minutes / 60;
-            int remainingMinutes = minutes % 60;
-            TaskDialog.Show("Sun Analysis Complete", $"Total Sun Hours at Point: {hours} hours and {remainingMinutes} minutes");
-
-
             return Result.Succeeded;
         }
     }

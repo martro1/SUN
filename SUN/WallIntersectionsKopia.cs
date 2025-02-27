@@ -7,17 +7,20 @@ using System.Threading.Tasks;
 
 namespace SUN
 {
-    public class WallIntersections
+    public class WallIntersectionsKopia
     {
         public Element Wall { get; set; }
         public XYZ FirstPoint { get; set; }
         public XYZ LastPoint { get; set; }
 
-        public List<WallIntersections> GetWallIntersections(Document doc, View3D activeView, List<XYZ> sunVectors, XYZ startPoint)
+        public List<WallIntersectionsKopia> GetWallIntersections(Document doc, View3D activeView, List<XYZ> sunVectors, XYZ startPoint)
         {
             List<BuiltInCategory> categories = new List<BuiltInCategory>
         {
-            BuiltInCategory.OST_Walls
+            BuiltInCategory.OST_Walls,
+            BuiltInCategory.OST_Floors,
+            BuiltInCategory.OST_Roofs,
+            BuiltInCategory.OST_Mass
         };
 
             ElementMulticategoryFilter multiFilter = new ElementMulticategoryFilter(categories);
@@ -47,7 +50,7 @@ namespace SUN
             }
 
             // Sort points along sun vector direction and extract first/last per wall
-            List<WallIntersections> result = new List<WallIntersections>();
+            List<WallIntersectionsKopia> result = new List<WallIntersectionsKopia>();
 
             foreach (var kvp in wallIntersections)
             {
@@ -58,16 +61,17 @@ namespace SUN
 
                 if (points.Count > 1)
                 {
-                    result.Add(new WallIntersections
+                    result.Add(new WallIntersectionsKopia
                     {
                         Wall = doc.GetElement(kvp.Key),
-                        FirstPoint = points.First(),
-                        LastPoint = points.Last()
+                        FirstPoint = points.Last(),
+                        LastPoint = points.First()
                     });
                 }
             }
 
             return result;
         }
+
     }
 }

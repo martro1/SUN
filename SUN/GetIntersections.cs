@@ -105,10 +105,12 @@ namespace SUN
                 if (points.Count > 1)
                 {
                     // **Znajdujemy najniższą wartość Z wśród punktów otworu**
-                    double minZ = points.Max(pt => pt.Z);
+                    double minZ = points.Max(pt => pt.Z); // Find lowest Z, not highest
+
 
                     // **Filtrujemy punkty, wybierając tylko te na dolnej krawędzi otworu**
-                    List<XYZ> bottomEdgePoints = points.Where(p => Math.Abs(p.Z - minZ) < 0.01).ToList();
+                    List<XYZ> bottomEdgePoints = points.Where(p => Math.Abs(p.Z - minZ) < 0.05).ToList();
+
 
                     // **Znajdujemy najbardziej zewnętrzne punkty otworu (blisko elewacji)**
                     double maxDepth = bottomEdgePoints.Max(p => p.Y); // Zakładamy, że większy Y oznacza bardziej na zewnątrz

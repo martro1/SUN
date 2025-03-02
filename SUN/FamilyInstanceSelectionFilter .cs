@@ -24,7 +24,7 @@ namespace SUN
 
         public bool AllowElement(Element elem)
         {
-            // Sprawdzenie, czy element to FamilyInstance i czy ma w³aœciw¹ nazwê rodziny
+            // checking if element is familyinstance and has a proper name
             if (elem is FamilyInstance fi && fi.Symbol.Family.Name == _familyName)
             {
                 return true;
@@ -34,7 +34,7 @@ namespace SUN
 
         public bool AllowReference(Reference reference, XYZ position)
         {
-            return false; // Nie pozwalamy na wybór geometrii, tylko ca³ych elementów
+            return false; // we dont let to choose geometry, ONLY whole objects
         }
 
 

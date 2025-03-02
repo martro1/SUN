@@ -1,4 +1,4 @@
-#region Namespaces
+﻿#region Namespaces
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -35,9 +35,40 @@ namespace SUN
 
             return new XYZ(x, y, z);
         }
+        //public static bool IsPointExposedToSun(Document doc, XYZ point, XYZ sunVector)
+        //{
+        //    View3D activeView = doc.ActiveView as View3D;
+
+        //    List<BuiltInCategory> categories = new List<BuiltInCategory>
+        //    {
+        //        BuiltInCategory.OST_Walls,
+        //        BuiltInCategory.OST_Floors,
+        //        BuiltInCategory.OST_Roofs,
+        //        BuiltInCategory.OST_Mass
+        //    };
+
+        //    ElementMulticategoryFilter multiFilter = new ElementMulticategoryFilter(categories);
+
+
+        //    ReferenceIntersector refIntersector =
+        //        new ReferenceIntersector(multiFilter, FindReferenceTarget.Element, activeView);
+
+        //    IList<ReferenceWithContext> results = refIntersector.Find(point, sunVector);
+
+
+        //    return results.Count == 0;
+
+        //}
+
         public static bool IsPointExposedToSun(Document doc, XYZ point, XYZ sunVector)
         {
             View3D activeView = doc.ActiveView as View3D;
+
+            if (activeView == null)
+            {
+                TaskDialog.Show("Błąd", "Brak aktywnego widoku 3D.");
+                return false;
+            }
 
             List<BuiltInCategory> categories = new List<BuiltInCategory>
             {
@@ -49,20 +80,32 @@ namespace SUN
 
             ElementMulticategoryFilter multiFilter = new ElementMulticategoryFilter(categories);
 
+            // ✅ Upewniamy się, że wektor kierunkowy jest poprawny
+            XYZ direction = sunVector.Normalize();
 
             ReferenceIntersector refIntersector =
                 new ReferenceIntersector(multiFilter, FindReferenceTarget.Element, activeView);
 
-            IList<ReferenceWithContext> results = refIntersector.Find(point, sunVector);
+            // 🔍 Znajdujemy przeszkody na drodze promienia
+            IList<ReferenceWithContext> results = refIntersector.Find(point, direction);
 
+            // 🔍 Jeśli nie ma trafień, punkt jest nasłoneczniony
+            if (results.Count == 0)
+            {
+                return true;
+            }
 
-            return results.Count == 0;
+            // 🔍 Znajdujemy pierwsze trafienie (najbliższą przeszkodę)
+            ReferenceWithContext closestHit = results.OrderBy(r => r.Proximity).FirstOrDefault();
 
+            // 🔄 Sprawdzamy, czy przeszkoda nie jest za analizowanym punktem
+            if (closestHit != null && closestHit.Proximity > 1e-5) // Ustawiamy tolerancję na 0.00001
+            {
+                return false; // Punkt jest zacieniony
+            }
+
+            return true; // Punkt jest nasłoneczniony
         }
 
-
     }
-
-
-
 }

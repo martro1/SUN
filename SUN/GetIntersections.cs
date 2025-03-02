@@ -138,35 +138,6 @@ namespace SUN
                 }
             }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
             // Dodajemy punkty na ścianach
             foreach (var kvp in wallIntersections)
             {
@@ -202,7 +173,7 @@ namespace SUN
                 foreach (ElementId insertId in inserts)
                 {
                     FamilyInstance insert = doc.GetElement(insertId) as FamilyInstance;
-                    if (insert != null && insert.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Windows)
+                    if (insert != null && insert.Category.Id.Value == (int)BuiltInCategory.OST_Windows)
                     {
                         // Pobranie Bounding Box okna
                         BoundingBoxXYZ bbox = insert.get_BoundingBox(null);

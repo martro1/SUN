@@ -9,13 +9,13 @@ public class FamilyInstanceNormal
     {
         if (familyInstance == null)
         {
-            TaskDialog.Show("Błąd", "FamilyInstance jest null.");
+            TaskDialog.Show("Error", "FamilyInstance is null.");
             return null;
         }
 
         Document doc = familyInstance.Document;
 
-        // 1️⃣ **Sprawdź, czy rodzina jest Face-Based**
+        // check if familyinstace is facebased
         Reference reference = familyInstance.HostFace;
         if (reference != null)
         {
@@ -35,7 +35,7 @@ public class FamilyInstanceNormal
                             {
                                 if (face.Reference != null && face.Reference.ElementId == reference.ElementId)
                                 {
-                                    return face.ComputeNormal(new UV(0.5, 0.5)); // Wektor normalny Face-Based
+                                    return face.ComputeNormal(new UV(0.5, 0.5)); // Normal vector
                                 }
                             }
                         }
@@ -44,7 +44,7 @@ public class FamilyInstanceNormal
             }
         }
 
-        // 2️⃣ **Dla rodzin NIE Face-Based, pobierz oś Z z transformacji**
+        // for families not familyinstance take axis Z
         return familyInstance.GetTransform().BasisZ;
     }
 

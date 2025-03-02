@@ -38,7 +38,7 @@ namespace SUN
             // Tworzenie nowego materia³u
             ElementId elementmat = Material.Create(doc, materialName);
             Material newMaterial = doc.GetElement(elementmat) as Material;
-            newMaterial.Color = new Color(255, 0, 0); // Czerwony
+            newMaterial.Color = new Color(255, 127, 0); // pomarañczowy z lekkim przyciemnieniem.
             newMaterial.Transparency = 50; // 20% przezroczystoœci
 
 

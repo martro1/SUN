@@ -48,6 +48,7 @@ namespace SUN
             LocationPoint locP = selectedElement.Location as LocationPoint;
             XYZ locationPPoint = locP.Point;
 
+
             using (Transaction trans = new Transaction(doc, "Analiza nas³onecznienia"))
             {
                 trans.Start();

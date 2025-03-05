@@ -35,10 +35,12 @@ namespace SUN
 
             return new XYZ(x, y, z);
         }
-        public static bool IsPointExposedToSun(Document doc, XYZ point, XYZ sunVector)
-        {
-            View3D activeView = doc.ActiveView as View3D;
 
+        public static bool IsPointExposedToSun(Document doc, XYZ startPoint, XYZ targetPoint)
+        {
+            View3D view3D = doc.ActiveView as View3D;
+
+            // Filtrujemy przeszkody – œciany, dachy, pod³ogi, masy
             List<BuiltInCategory> categories = new List<BuiltInCategory>
             {
                 BuiltInCategory.OST_Walls,
@@ -48,21 +50,38 @@ namespace SUN
             };
 
             ElementMulticategoryFilter multiFilter = new ElementMulticategoryFilter(categories);
+            ReferenceIntersector intersector =
+                new ReferenceIntersector(multiFilter, FindReferenceTarget.Element, view3D);
 
+            // Wyszukujemy przeszkody na œcie¿ce promienia s³oñca
+            IList<ReferenceWithContext> references =
+                intersector.Find(startPoint, (targetPoint - startPoint).Normalize());
+            if (references == null || references.Count == 0)
+            {
+                return true; // Jeœli nie ma przeszkód, punkt jest ods³oniêty
+            }
 
-            ReferenceIntersector refIntersector =
-                new ReferenceIntersector(multiFilter, FindReferenceTarget.Element, activeView);
+            // Sortujemy trafienia wg odleg³oœci
+            references = references.OrderBy(r => r.Proximity).ToList();
 
-            IList<ReferenceWithContext> results = refIntersector.Find(point, sunVector);
+            foreach (ReferenceWithContext refContext in references)
+            {
+                Reference reference = refContext.GetReference();
+                Element element = doc.GetElement(reference);
+                if (element == null) continue;
 
+                // Jeœli przeszkoda jest bli¿ej ni¿ docelowy punkt, oznacza to, ¿e s³oñce jest zas³oniête
+                if (refContext.Proximity < startPoint.DistanceTo(targetPoint))
+                {
+                    return false; // Punkt jest zas³oniêty
+                }
+            }
 
-            return results.Count == 0;
-
+            return true; // Jeœli nie by³o wczeœniejszej przeszkody, punkt jest ods³oniêty
         }
 
 
+
+
     }
-
-
-
 }

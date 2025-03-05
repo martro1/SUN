@@ -1,4 +1,4 @@
-#region Namespaces
+ï»¿#region Namespaces
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -43,13 +43,12 @@ namespace SUN
 
             string targetFamilyName = "MAMSunTarget";
             Reference pickedRef = uidoc.Selection.PickObject(ObjectType.Element, new FamilyInstanceSelectionFilter(targetFamilyName),
-                "Wybierz instancjê rodziny '" + targetFamilyName + "'");
+                "Wybierz instancjÄ™ rodziny '" + targetFamilyName + "'");
             Element selectedElement = doc.GetElement(pickedRef);
             LocationPoint locP = selectedElement.Location as LocationPoint;
             XYZ locationPPoint = locP.Point;
 
-
-            using (Transaction trans = new Transaction(doc, "Analiza nas³onecznienia"))
+            using (Transaction trans = new Transaction(doc, "Analiza nasÅ‚onecznienia"))
             {
                 trans.Start();
 
@@ -73,7 +72,7 @@ namespace SUN
 
                 if (wynik.Count < 2)
                 {
-                    TaskDialog.Show("B³¹d", "Za ma³o przeciêæ do analizy.");
+                    TaskDialog.Show("BÅ‚Ä…d", "Za maÅ‚o przeciÄ™Ä‡ do analizy.");
                     trans.RollBack();
                     return Result.Failed;
                 }
@@ -84,9 +83,17 @@ namespace SUN
                 bool firstBlocked = !sunExtensions.IsPointExposedToSun(doc, analysisPoint, first);
                 bool lastBlocked = !sunExtensions.IsPointExposedToSun(doc, analysisPoint, last);
 
+                // Wizualizacja punktÃ³w przeciÄ™cia
+                foreach (var intersection in wynik)
+                {
+                    intersection.FirstPoint.Visualize(doc);
+                    intersection.LastPoint.Visualize(doc);
+                }
+
+                // Tworzenie trÃ³jkÄ…tÃ³w dla nasÅ‚onecznienia
                 if (firstBlocked && lastBlocked)
                 {
-                    TaskDialog.Show("Info", "Oba wektory (7:00 i 17:00) s¹ zas³oniête.");
+                    TaskDialog.Show("Info", "Oba wektory (7:00 i 17:00) sÄ… zasÅ‚oniÄ™te.");
                     for (int i = 0; i < wynik.Count - 1; i++)
                     {
                         XYZ firstWallLastPoint = wynik[i].LastPoint;
@@ -96,7 +103,7 @@ namespace SUN
                 }
                 else if (firstBlocked && !lastBlocked)
                 {
-                    TaskDialog.Show("Info", "Wektor 7:00 jest zas³oniêty, 17:00 ods³oniêty.");
+                    TaskDialog.Show("Info", "Wektor 7:00 jest zasÅ‚oniÄ™ty, 17:00 odsÅ‚oniÄ™ty.");
                     for (int i = 0; i < wynik.Count - 1; i++)
                     {
                         XYZ firstWallLastPoint = wynik[i].LastPoint;
@@ -109,7 +116,7 @@ namespace SUN
                 }
                 else if (!firstBlocked && lastBlocked)
                 {
-                    TaskDialog.Show("Info", "Wektor 7:00 jest ods³oniêty, 17:00 zas³oniêty.");
+                    TaskDialog.Show("Info", "Wektor 7:00 jest odsÅ‚oniÄ™ty, 17:00 zasÅ‚oniÄ™ty.");
                     XYZ godzina7 = oddalonelista.First();
                     XYZ firstWallFirstPoint = wynik[0].FirstPoint;
                     SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallFirstPoint, godzina7);
@@ -123,7 +130,7 @@ namespace SUN
                 }
                 else
                 {
-                    TaskDialog.Show("Info", "Oba wektory (7:00 i 17:00) s¹ ods³oniête.");
+                    TaskDialog.Show("Info", "Oba wektory (7:00 i 17:00) sÄ… odsÅ‚oniÄ™te.");
                     XYZ godzina7 = oddalonelista.First();
                     XYZ firstWallFirstPoint = wynik[0].FirstPoint;
                     SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallFirstPoint, godzina7);
@@ -140,11 +147,12 @@ namespace SUN
                     SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, lastWallLastPoint, godzina17);
                 }
 
+
                 int hours = minutes / 60;
                 int remainingMinutes = minutes % 60;
                 TaskDialog.Show("Sun Analysis Complete", $"Total Sun Hours at Point: {hours} h {remainingMinutes} min");
 
-                selectedElement.LookupParameter("Nas³onecznienie")?.Set($"{hours} h {remainingMinutes} min");
+                selectedElement.LookupParameter("NasÅ‚onecznienie")?.Set($"{hours} h {remainingMinutes} min");
 
                 trans.Commit();
             }

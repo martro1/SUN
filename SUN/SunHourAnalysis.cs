@@ -67,14 +67,10 @@ namespace SUN
                     }
                 }
 
-                GetIntersections WI = new GetIntersections();
-                List<GetIntersections> wynik = WI.GetIntersection(doc, activeView, oddalonelista, analysisPoint);
+                TaskDialog.Show("Normal", $"Normal MAMSunTarget: {normal.X}, {normal.Y}, {normal.Z}");
 
-                // 🔥 Zmiana strategii: Sortujemy punkty przecięcia i bierzemy tylko te, które są przed analizowanym punktem
-                wynik = wynik
-                    .OrderBy(w => w.FirstPoint.DistanceTo(analysisPoint))
-                    .Where(w => w.FirstPoint.DistanceTo(analysisPoint) < w.LastPoint.DistanceTo(analysisPoint))
-                    .ToList();
+                GetIntersections WI = new GetIntersections();
+                List<GetIntersections> wynik = WI.GetIntersection(doc, activeView, oddalonelista, analysisPoint,normal);
 
                 if (wynik.Count < 2)
                 {
@@ -83,11 +79,14 @@ namespace SUN
                     return Result.Failed;
                 }
 
-                XYZ first = analysisPoint.MoveAlongVector(oddalonelista.First(), analysisPoint.DistanceTo(wynik.First().LastPoint));
-                XYZ last = analysisPoint.MoveAlongVector(oddalonelista.Last(), analysisPoint.DistanceTo(wynik.Last().FirstPoint));
+                // Szukamy rzeczywistego przecięcia pierwszego i ostatniego wektora słonecznego
+                XYZ firstIntersection = wynik.FirstOrDefault()?.LastPoint ?? oddalonelista.First();
+                XYZ lastIntersection = wynik.LastOrDefault()?.FirstPoint ?? oddalonelista.Last();
 
-                bool firstBlocked = !sunExtensions.IsPointExposedToSun(doc, analysisPoint, first);
-                bool lastBlocked = !sunExtensions.IsPointExposedToSun(doc, analysisPoint, last);
+                // Sprawdzamy, czy pierwsza i ostatnia godzina są zasłonięte
+                bool firstBlocked = !sunExtensions.IsPointExposedToSun(doc, analysisPoint, firstIntersection);
+                bool lastBlocked = !sunExtensions.IsPointExposedToSun(doc, analysisPoint, lastIntersection);
+
 
                 // ✅ Wizualizacja punktów przecięcia
                 foreach (var intersection in wynik)
@@ -96,19 +95,75 @@ namespace SUN
                     intersection.LastPoint.Visualize(doc);
                 }
 
-                // ✅ Tworzenie trójkątów tylko dla prawidłowych przecięć
+                // ✅ Tworzenie trójkątów dla 4 przypadków
+                int createdTriangles = 0;
+
+                // 🔹 1. Oba wektory zasłonięte (7:00 i 17:00)
                 if (firstBlocked && lastBlocked)
                 {
+                    TaskDialog.Show("Info", "Oba wektory (7:00 i 17:00) są zasłonięte.");
                     for (int i = 0; i < wynik.Count - 1; i++)
                     {
                         XYZ firstWallLastPoint = wynik[i].LastPoint;
                         XYZ secondWallFirstPoint = wynik[i + 1].FirstPoint;
 
-                        if (firstWallLastPoint.DistanceTo(analysisPoint) < secondWallFirstPoint.DistanceTo(analysisPoint))
-                        {
-                            SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallLastPoint, secondWallFirstPoint);
-                        }
+                        SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallLastPoint, secondWallFirstPoint);
+                        createdTriangles++;
                     }
+                }
+                // 🔹 2. `7:00` odsłonięta, `17:00` zasłonięta
+                else if (!firstBlocked && lastBlocked)
+                {
+                    TaskDialog.Show("Info", "Wektor 7:00 jest odsłonięty, 17:00 zasłonięty.");
+
+                    XYZ godzina7 = oddalonelista.First();
+                    XYZ firstWallFirstPoint = wynik[0].FirstPoint;
+                    SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallFirstPoint, godzina7);
+
+                    for (int i = 0; i < wynik.Count - 1; i++)
+                    {
+                        XYZ firstWallLastPoint = wynik[i].LastPoint;
+                        XYZ secondWallFirstPoint = wynik[i + 1].FirstPoint;
+                        SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallLastPoint, secondWallFirstPoint);
+                        createdTriangles++;
+                    }
+                }
+                // 🔹 3. `7:00` zasłonięta, `17:00` odsłonięta
+                else if (firstBlocked && !lastBlocked)
+                {
+                    TaskDialog.Show("Info", "Wektor 7:00 jest zasłonięty, 17:00 odsłonięty.");
+                    for (int i = 0; i < wynik.Count - 1; i++)
+                    {
+                        XYZ firstWallLastPoint = wynik[i].LastPoint;
+                        XYZ secondWallFirstPoint = wynik[i + 1].FirstPoint;
+                        SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallLastPoint, secondWallFirstPoint);
+                        createdTriangles++;
+                    }
+
+                    XYZ godzina17 = oddalonelista.Last();
+                    XYZ lastWallLastPoint = wynik[wynik.Count - 1].LastPoint;
+                    SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, lastWallLastPoint, godzina17);
+                }
+                // 🔹 4. Oba wektory odsłonięte
+                else
+                {
+                    TaskDialog.Show("Info", "Oba wektory (7:00 i 17:00) są odsłonięte.");
+
+                    XYZ godzina7 = oddalonelista.First();
+                    XYZ firstWallFirstPoint = wynik[0].FirstPoint;
+                    SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallFirstPoint, godzina7);
+
+                    for (int i = 0; i < wynik.Count - 1; i++)
+                    {
+                        XYZ firstWallLastPoint = wynik[i].LastPoint;
+                        XYZ secondWallFirstPoint = wynik[i + 1].FirstPoint;
+                        SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, firstWallLastPoint, secondWallFirstPoint);
+                        createdTriangles++;
+                    }
+
+                    XYZ godzina17 = oddalonelista.Last();
+                    XYZ lastWallLastPoint = wynik[wynik.Count - 1].LastPoint;
+                    SolidCapCreation.CreateSolidCap(uiapp, analysisPoint, lastWallLastPoint, godzina17);
                 }
 
                 int hours = minutes / 60;

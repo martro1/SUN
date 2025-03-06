@@ -69,7 +69,7 @@ namespace SUN
                 }
 
                 GetIntersections WI = new GetIntersections();
-                List<GetIntersections> wynik = WI.GetIntersection(doc, activeView, oddalonelista, analysisPoint);
+                List<GetIntersections> wynik = WI.GetIntersection(doc, activeView, oddalonelista, analysisPoint,normal);
 
                 if (wynik.Count < 2)
                 {

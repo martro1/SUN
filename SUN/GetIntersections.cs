@@ -16,10 +16,11 @@ namespace SUN
         public string LastSunRayHour { get; set; }
 
         public List<GetIntersections> GetIntersection(
-     Document doc,
-     View3D activeView,
-     List<XYZ> sunVectors,
-     XYZ startPoint)
+            Document doc,
+            View3D activeView,
+            List<XYZ> sunVectors,
+            XYZ startPoint,
+            XYZ targetNormal) // <-- Wektor normalny MAMSunTarget
         {
             if (doc == null)
                 throw new ArgumentNullException(nameof(doc), "Document is null.");
@@ -29,14 +30,16 @@ namespace SUN
                 throw new ArgumentNullException(nameof(sunVectors), "Sun vectors list is empty.");
             if (startPoint == null)
                 throw new ArgumentNullException(nameof(startPoint), "Start point is null.");
+            if (targetNormal == null)
+                throw new ArgumentNullException(nameof(targetNormal), "Target normal is null.");
 
             List<BuiltInCategory> categories = new List<BuiltInCategory>
-    {
-        BuiltInCategory.OST_Walls,
-        BuiltInCategory.OST_Floors,
-        BuiltInCategory.OST_Roofs,
-        BuiltInCategory.OST_Mass
-    };
+            {
+                BuiltInCategory.OST_Walls,
+                BuiltInCategory.OST_Floors,
+                BuiltInCategory.OST_Roofs,
+                BuiltInCategory.OST_Mass
+            };
 
             ElementMulticategoryFilter multiFilter = new ElementMulticategoryFilter(categories);
             ReferenceIntersector refIntersector = new ReferenceIntersector(multiFilter, FindReferenceTarget.Element, activeView);
@@ -72,8 +75,8 @@ namespace SUN
 
                     XYZ intersection = reference.GlobalPoint;
 
-                    // 🔥 FILTR: Sprawdzamy, czy punkt przecięcia JEST PRZED `MAMSunTarget`
-                    if (!IsPointInFrontOfTarget(startPoint, sunVector, intersection))
+                    // 🔥 Sprawdzamy, czy punkt przecięcia JEST PRZED `MAMSunTarget`
+                    if (!IsPointInFrontOfTarget(startPoint, intersection, targetNormal))
                         continue;
 
                     // Sprawdzamy, czy trafienie jest na oknie
@@ -142,15 +145,17 @@ namespace SUN
             return result;
         }
 
-
-        // 🔥 Sprawdza, czy punkt przecięcia znajduje się PRZED analizowanym punktem `MAMSunTarget`
-        private bool IsPointInFrontOfTarget(XYZ startPoint, XYZ sunVector, XYZ intersection)
+        // ✅ **Poprawiona funkcja – sprawdza, czy punkt przecięcia jest przed `MAMSunTarget`**
+        private bool IsPointInFrontOfTarget(XYZ startPoint, XYZ intersection, XYZ targetNormal)
         {
-            XYZ directionToIntersection = (intersection - startPoint).Normalize();
-            double dotProduct = sunVector.DotProduct(directionToIntersection);
+            XYZ vectorToIntersection = (intersection - startPoint);  // Wektor od MAMSunTarget do punktu przecięcia
+            double distanceAlongNormal = vectorToIntersection.DotProduct(targetNormal);
 
-            return dotProduct > 0 && (intersection - startPoint).GetLength() > 0.001;
+            return distanceAlongNormal > 0; // Punkt jest PRZED `MAMSunTarget` jeśli jest w przeciwnym kierunku do normalnej
         }
+
+
+
 
 
         private bool IsValidIntersection(Element element, XYZ intersection)
